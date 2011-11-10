@@ -1,1 +1,16 @@
 This is just for learning V4L2 framework
+
+Developer:
+
+-About files:
+   --template directory includes source file and Makefile template.
+     And the only header file is in src/include.
+   --kern_mode_need directory contains the kernel modules needed by vivi.
+     To install them just get the root privilege and run kern_mode_need/built_modes/prepare.sh
+
+
+
+
+
+
+Good Luck!
