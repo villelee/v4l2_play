@@ -2,11 +2,15 @@
  * File Name:
  *      example.c
  * Description:
+ *      This file shows how to get info of all
+ *      the supported video standards.
  * Author:
  *      ville lee   <villelee1987@gmail.com>
  * Used V4L2 Infrastruct:
  *  struct:
+ *      struct v4l2_standard.
  *  IO Control:
+ *      VIDIOC_ENUMSTD.
  */
 #include <stdio.h>
 #include <fcntl.h>
@@ -20,6 +24,8 @@
 
 #include "../include/v4l2-util.h"
 
+struct v4l2_standard std;
+
 int main(void) {
     int fd, errno = 0;
 
@@ -28,6 +34,8 @@ int main(void) {
         errno = -1;
         goto error;
     }
+    
+    errno = list_supported_video_stds(fd, &std);
 
 error:
     if (0 < fd) {
@@ -35,11 +43,4 @@ error:
     }
     exit(errno);
 }
-
-/**
- * Name:
- * Description:
- * Params:
- * Return value
- */
 
