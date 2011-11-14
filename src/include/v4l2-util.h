@@ -373,4 +373,83 @@ error:
     return -1;
 }
 
+
+/**
+ * Name: enum_extended_ctrl.
+ * Description:
+ *      This function list all the supported extended controls.
+ * Params:
+ *      fd: file descriptor.
+ *      qctrl: main query control struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int enum_extended_ctrl(int fd, struct v4l2_queryctrl *qctrl)
+{
+    /**
+     * FIXME:
+     *      SHould check if params are valid.
+     */
+    /**
+     * id is an 32 bits integer.
+     * |31 ~ 28|27     ~     16|15   ~   0|
+     * | Flags | Control Class |control ID|
+     */
+    memset(qctrl, 0, sizeof(struct v4l2_queryctrl));
+    qctrl->id = V4L2_CTRL_FLAG_NEXT_CTRL;    /* to query extends controls, must set this */
+
+    while (0 == ioctl(fd, VIDIOC_QUERYCTRL, qctrl)) {
+        printf("Extended Control Name: %s \nExtended Control:[%d]  Control Class:[%d]  Control ID:[%d]\n\n",
+                    qctrl->name, qctrl->id,
+                    (int)V4L2_CTRL_ID2CLASS(qctrl->id), (int)(qctrl->id & 0xffff));
+        qctrl->id |= V4L2_CTRL_FLAG_NEXT_CTRL;
+    }
+
+    if (qctrl->id == V4L2_CTRL_FLAG_NEXT_CTRL) {
+        perror("Do not support extended control\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * Name: get_ctrls_in_class.
+ * Description:
+ *      This function list all the supported ctrl info in specified class.
+ * Params:
+ *      fd: file descriptor.
+ *      qctrl: main query ctrl struct in v4l2.
+ *      class: specified class ID.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int get_ctrls_in_class(int fd, struct v4l2_queryctrl *qctrl, int class)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    memset(qctrl, 0, sizeof(struct v4l2_queryctrl));
+    qctrl->id = V4L2_CTRL_FLAG_NEXT_CTRL | class;
+
+    while (0 == ioctl(fd, VIDIOC_QUERYCTRL, qctrl)) {
+        if (V4L2_CTRL_ID2CLASS(qctrl->id) != class)
+            break;
+        else {
+            printf("Extended Control Name: %s \nExtended Control:[%d]  Control Class:[%d]  Control ID:[%d]\n\n",
+                        qctrl->name, qctrl->id,
+                        (int)V4L2_CTRL_ID2CLASS(qctrl->id), (int)(qctrl->id & 0xffff));
+            qctrl->id |= V4L2_CTRL_FLAG_NEXT_CTRL;
+        }
+    }
+
+    if (V4L2_CTRL_ID2CLASS(qctrl->id) == class) {
+        perror("Can not get ctrl from control class");
+        return -1;
+    }
+
+    return 0;
+}
+
 #endif

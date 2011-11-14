@@ -2,11 +2,16 @@
  * File Name:
  *      example.c
  * Description:
+ *      This file shows how to query extended control.
  * Author:
  *      ville lee   <villelee1987@gmail.com>
  * Used V4L2 Infrastruct:
  *  struct:
+ *      struct v4l2_queryctrl.
  *  IO Control:
+ *      VIDIOC_QUERYCTRL.
+ *      V4L2_CTRL_ID2CLASS.(Note: Macro to get Class value from control ID)
+ *      V4L2_CTRL_FLAG_NEXT_CTRL.
  */
 #include <stdio.h>
 #include <errno.h>
@@ -21,6 +26,8 @@
 
 #include "../include/v4l2-util.h"
 
+struct v4l2_queryctrl qctrl;
+
 int main(void) {
     int fd, retval = 0;
 
@@ -30,17 +37,14 @@ int main(void) {
         goto error;
     }
 
+    if (-1 == enum_extended_ctrl(fd, &qctrl)) {
+        retval = -1;
+    }
+
 error:
     if (0 < fd) {
         close(fd);
     }
     exit(retval);
 }
-
-/**
- * Name:
- * Description:
- * Params:
- * Return value
- */
 
