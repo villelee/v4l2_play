@@ -10,6 +10,7 @@
 #define __V4L2_UTIL_H__
 
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 #include <linux/videodev2.h>
 
@@ -235,4 +236,141 @@ int switch_to_new_std(int fd, v4l2_std_id *id)
 
     return 0;
 }
+
+/**
+ * Name: enum_all_menuitems
+ * Description:
+ *      This function lists all the menu items of a ioctl.
+ * Params:
+ *      fd: file descriptor.
+ *      menu: main querymenu struct in v4l2.
+ *            This indicates that this ioctrl has a menu of N choices.
+ *      mini: minimum value of the menu items.
+ *      max : maxmum value of the menu items.
+ * Return value
+ *      -1 on fail while 0 on sucess.
+ */
+int enum_all_menuitems(int fd, struct v4l2_querymenu *menu, int mini, int max)
+{
+    for (menu->index = mini; menu->index < max; menu->index++) {
+        if (0 == ioctl(fd, VIDIOC_QUERYMENU, menu)) {
+            printf("Menu item[%d]:%s\n", menu->index, menu->name);
+        } else {
+            perror("Can not query menu\n");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Name: enum_all_controls
+ * Description:
+ *      This function lists all the ioctls.
+ * Params:
+ *      fd: file descriptor.
+ *      ctrl: main queryctrl struct in v4l2.
+ *      menu: main querymenu struct in v4l2.
+ *            This indicates that this ioctrl has a menu of N choices.
+ * Return value
+ *      -1 on fail while 0 on sucess.
+ */
+int enum_all_controls(int fd, struct v4l2_queryctrl *ctrl, struct v4l2_querymenu *menu)
+{
+    /**
+     * FIXME:
+     *      Should check if the params are valid.
+     */
+    /* clear the struct */
+    memset(ctrl, 0, sizeof(struct v4l2_queryctrl));
+    memset(menu, 0, sizeof(struct v4l2_querymenu));
+
+    for (ctrl->id = V4L2_CID_BASE; ctrl->id <= V4L2_CID_LASTP1; ctrl->id++) {
+        if (0 == ioctl(fd, VIDIOC_QUERYCTRL, ctrl)) {
+            if (ctrl->flags & V4L2_CTRL_FLAG_DISABLED) {
+                continue;
+            }
+            printf("Current control ID: %d, Name: %s\n", ctrl->id, ctrl->name);
+
+            if (ctrl->type & V4L2_CTRL_TYPE_MENU) {
+                /* call menu */
+                menu->id = ctrl->id;
+                enum_all_menuitems(fd, menu, ctrl->minimum, ctrl->maximum);
+            }
+        } else {
+            if (errno == EINVAL)
+                continue;
+            perror("Do not support VIDIOC_QUERYCTRL\n");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * Name: ste_ctrl_val.
+ * Description:
+ *      This function set value to a specified control.
+ *      Users of this function must set qctrl properly first.
+ * Params:
+ *      fd: file descriptor.
+ *      ctrl: main queryctrl struct in v4l2.
+ *      ctl: main control struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int set_ctrl_val(int fd, struct v4l2_queryctrl *qctrl, struct v4l2_control *ctrl, int value)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    /* check if device support this kind of control. */
+    if (-1 == ioctl(fd, VIDIOC_QUERYCTRL, qctrl)) {
+        if (errno != EINVAL) {
+            perror("Do not support VIDIOC_QUERYCTRL\n");
+            goto error;
+        } else {
+            perror("Do not support this kind of control\n");
+            goto error;
+        }
+    } else if (qctrl->flags & V4L2_CTRL_FLAG_DISABLED) {
+        perror("Do not support this kind of control\n");
+        goto error;
+    } else {
+        /* device support this kond of control. */
+        memset(ctrl, 0, sizeof(struct v4l2_control));
+        ctrl->id = qctrl->id;
+        ctrl->value = value;
+        if (-1 == ioctl(fd, VIDIOC_S_CTRL, ctrl)) {
+            printf("Can not set control[%d] to value[%d]", ctrl->id, ctrl->value);
+            goto error;
+        }
+    }
+
+    /* check if the value is right. */
+    memset(ctrl, 0, sizeof(struct v4l2_control));
+    ctrl->id = qctrl->id;
+    if (-1 == ioctl(fd, VIDIOC_G_CTRL, ctrl)) {
+        perror("Can not get control\n");
+        goto error;
+    } else {
+        if (value != ctrl->value) {
+            perror("Set value fails\n");
+            goto error;
+        }
+    }
+
+    return 0;
+error:
+    /**
+     * we could add a local flag and identify 
+     * different error types, then treat 
+     * each kind of them in a proper way.
+     */
+    return -1;
+}
+
 #endif

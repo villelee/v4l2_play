@@ -2,18 +2,19 @@
  * File Name:
  *      example.c
  * Description:
- *      This file shows how to switch to a new standard.
+ *      This file shows how to query controls and menu items of a specified control.
  * Author:
  *      ville lee   <villelee1987@gmail.com>
  * Used V4L2 Infrastruct:
  *  struct:
- *      struct v4l2_standard.
- *      v4l2_std_id.(Note: not a struct but a typedef)
+ *      struct v4l2_queryctrl.
+ *      struct v4l2_querymenu.
  *  IO Control:
- *      VIDIOC_S_STD.
- *      VIDIOC_ENUMSTD.
+ *      VIDIOC_QUERYCTRL.
+ *      VIDIOC_QUERYMENU.
  */
 #include <stdio.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -25,31 +26,25 @@
 
 #include "../include/v4l2-util.h"
 
-struct v4l2_standard std;
-v4l2_std_id std_id;
+struct v4l2_queryctrl ctrl;
+struct v4l2_querymenu menu;
 
 int main(void) {
-    int fd, errno = 0;
+    int fd, retval = 0;
 
     if (-1 == (fd = open(VIVI_DEV_PATH, O_RDWR, S_IWUSR))) {
         perror("Can not VIVI device!\nExit\n");
-        errno = -1;
+        retval = -1;
         goto error;
     }
 
-    if (-1 == list_supported_video_stds(fd, &std)) {
-        errno = -1;
-        goto error;
-    }
-    printf("Please input new video id value:");
-    scanf("%llu", &std_id);
-    errno = switch_to_new_std(fd, &std_id);
-
+    if (-1 == enum_all_controls(fd, &ctrl, &menu))
+        retval = -1;
 
 error:
     if (0 < fd) {
         close(fd);
     }
-    exit(errno);
+    exit(retval);
 }
 

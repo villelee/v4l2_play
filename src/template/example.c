@@ -9,6 +9,7 @@
  *  IO Control:
  */
 #include <stdio.h>
+#include <retval.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -21,11 +22,11 @@
 #include "../include/v4l2-util.h"
 
 int main(void) {
-    int fd, errno = 0;
+    int fd, retval = 0;
 
     if (-1 == (fd = open(VIVI_DEV_PATH, O_RDWR, S_IWUSR))) {
         perror("Can not VIVI device!\nExit\n");
-        errno = -1;
+        retval = -1;
         goto error;
     }
 
@@ -33,7 +34,7 @@ error:
     if (0 < fd) {
         close(fd);
     }
-    exit(errno);
+    exit(retval);
 }
 
 /**
