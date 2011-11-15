@@ -373,7 +373,6 @@ error:
     return -1;
 }
 
-
 /**
  * Name: enum_extended_ctrl.
  * Description:
@@ -449,6 +448,221 @@ int get_ctrls_in_class(int fd, struct v4l2_queryctrl *qctrl, int class)
         return -1;
     }
 
+    return 0;
+}
+
+/**
+ * Name: list_supported_data_fmts.
+ * Description:
+ *      This function lists all the data formats 
+ *      supported by driver.
+ * Params:
+ *      fd: file descriptor.
+ *      fmtdesc: main struct to descript data format.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int list_supported_data_fmts(int fd, struct v4l2_fmtdesc *fmtdesc)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    memset(fmtdesc, 0, sizeof(struct v4l2_fmtdesc));
+    /* should set index and type field first */
+    fmtdesc->index = 0;
+    fmtdesc->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    while (0 == ioctl(fd, VIDIOC_ENUM_FMT, fmtdesc)) {
+        printf("Format Index[%d], Name[%s]\n",
+                    fmtdesc->index, fmtdesc->description);
+        fmtdesc->index++;
+    }
+
+    if ((errno == EINVAL) && (fmtdesc->index > 0)) {
+        return 0;
+    }
+
+    return -1;
+}
+
+/**
+ * Name: get_data_fmt.
+ * Description:
+ *      This function get data format according to format type.
+ * Params:
+ *      fd: file descriptor.
+ *      fmt: main data format struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int get_data_fmt(int fd, struct v4l2_format *fmt)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    if (0 == ioctl(fd, VIDIOC_G_FMT, fmt)) {
+        printf("Data Format:\nType:[%d], Width*Height[%d * %d], Byte/line:[%d], Image Size:[%d]\n",
+                    (int)fmt->type, fmt->fmt.pix.width, fmt->fmt.pix.height,
+                    fmt->fmt.pix.bytesperline, fmt->fmt.pix.sizeimage);
+        return 0;
+    }
+
+    return -1;
+}
+
+/**
+ * Name: set_data_fmt.
+ * Description:
+ *      This function sets data format.
+ *      1. try format 2. set format 3. get to check format.
+ *      This is ugly because if driver can not support exact
+ *      data format, this function returns fail. But usually
+ *      we will allow driver to select a near data format.
+ * Params:
+ *      fd: file descriptor.
+ *      fmt: main data format struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int set_data_fmt(int fd, struct v4l2_format *fmt)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    /* try fmt first */
+    if (-1 == ioctl(fd, VIDIOC_TRY_FMT, fmt)) {
+        perror("Do not support this data format.\n");
+    }
+
+    /* set fmt */
+    if (-1 == ioctl(fd, VIDIOC_S_FMT, fmt)) {
+        if (errno == EINVAL) {
+            perror("Can not set this kind of data format.\n");
+            return -1;
+        } else if (errno == EBUSY){
+            perror("Can not set data format because of EBUSY\n");
+            return -1;
+        }
+    }
+
+    /* get fmt to check */
+    memset(fmt, 0, sizeof(struct v4l2_format));
+    fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (0 == get_data_fmt(fd, fmt)) {
+        return 0;
+    }
+
+    return -1;
+}
+
+/**
+ * Name: print_crop_params.
+ * Description:
+ *      printf infomation of crop paramters in v4l2_cropcap.
+ * Params:
+ *      ccap: main crop capability struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int print_crop_params(struct v4l2_cropcap *ccap)
+{
+    if (NULL == ccap)
+        return -1;
+
+    /* bounds info */
+    printf("Crop bounds Info:\nLeft:[%d]  Top:[%d]  Width:[%d]  Height:[%d]\n",
+                ccap->bounds.left, ccap->bounds.top,
+                ccap->bounds.width, ccap->bounds.height);
+    /* default rectangle info */
+    printf("Crop default rectangle Info:\nLeft:[%d]  Top:[%d]  Width:[%d]  Height:[%d]\n",
+                ccap->defrect.left, ccap->defrect.top,
+                ccap->defrect.width, ccap->defrect.height);
+    /* pixel aspect info */
+    printf("Crop pixel aspect info:\nnumerator:[%d]  denominator:[%d]\n",
+                ccap->pixelaspect.numerator, ccap->pixelaspect.denominator);
+
+    return 0;
+}
+
+/**
+ * Name: get_cropcap_info.
+ * Description:
+ *      printf infomation of crop paramters in v4l2_cropcap.
+ * Params:
+ *      fd: file descriptor.
+ *      ccap: main crop capability struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int get_cropcap_info(int fd, struct v4l2_cropcap *ccap)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    memset(ccap, 0, sizeof(struct v4l2_cropcap));
+    ccap->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (-1 == ioctl(fd, VIDIOC_CROPCAP, ccap)) {
+        perror("Can not query crop capability.\n");
+        return -1;
+    }
+
+    if (-1 == print_crop_params(ccap))
+        return -1;
+
+    return 0;
+}
+
+/**
+ * Name: get_crop.
+ * Description:
+ *      This function get current crop info.
+ * Params:
+ *      fd: file descriptor.
+ *      crop: main crop info struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int get_crop(int fd, struct v4l2_crop *crop)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    if (-1 == ioctl(fd, VIDIOC_G_CROP, crop)) {
+        perror("Can not get crop\n");
+        return -1;
+    }
+    printf("Crop info:\nLeft:[%d]  Top:[%d]  Width:[%d]  Height:[%d]",
+                crop->c.left, crop->c.top,
+                crop->c.width, crop->c.height);
+    return 0;
+}
+
+/**
+ * Name: set_crop.
+ * Description:
+ *      This function set current crop info.
+ * Params:
+ *      fd: file descriptor.
+ *      crop: main crop info struct in v4l2.
+ * Return value:
+ *      -1 on fail while 0 on success.
+ */
+int set_crop(int fd, struct v4l2_crop *crop)
+{
+    /**
+     * FIXME:
+     *      Should check if params are valid.
+     */
+    if (-1 == ioctl(fd, VIDIOC_S_CROP, crop)) {
+        perror("Can not set crop.\n");
+        return -1;
+    }
+    
     return 0;
 }
 
